@@ -1,0 +1,12 @@
+{
+    "comment": "天气预警配置文件",
+    "weather_city": "厦门市",
+    "weather_latitude": 24.4798,
+    "weather_longitude": 118.0894,
+    "weather_check_hour": 20,
+    "weather_temp_high_threshold": 35.0,
+    "weather_temp_low_threshold": 5.0,
+    "weather_temp_change_threshold": 10.0,
+    "weather_rain_prob_threshold": 60.0,
+    "weather_wind_speed_threshold": 50.0
+}

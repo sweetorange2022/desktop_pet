@@ -1,0 +1,17 @@
+{
+    "comment": "界面显示相关配置",
+    "app_name": "桌面宠物",
+    "pet_size": 120,
+    "bubble_width": 200,
+    "bubble_height": 120,
+    "bubble_margin": 0,
+    "bubble_auto_hide_ms": 5000,
+    "color_idle": "#4CAF50",
+    "color_warning": "#FF9800",
+    "color_danger": "#F44336",
+    "screen_margin_right": 30,
+    "screen_margin_bottom": 30,
+    "default_source": "纯净模式",
+    "source_names": ["纯净模式", "系统监控", "课程表", "健康提醒", "天气预警"],
+    "bubble_style": "    QWidget#info_bubble {\n        background-color: rgba(20, 20, 20, 230);\n        border: 1px solid rgba(255, 255, 255, 80);\n        border-radius: 12px;\n    }\n    QLabel {\n        color: #F0F0F0;\n        font-family: \"Microsoft YaHei\", \"Consolas\", \"Segoe UI\", sans-serif;\n        font-size: 13px;\n        font-weight: bold;\n        letter-spacing: 1px;\n    }"
+}
