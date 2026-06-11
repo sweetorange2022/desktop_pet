@@ -30,7 +30,8 @@ resp.json
 tests/dist/
 
 # 文档生成目录
-docs/
+docs/*
+!docs/version_info.txt
 
 # IDE / 编辑器
 .vscode/
