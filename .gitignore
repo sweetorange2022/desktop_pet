@@ -1,0 +1,51 @@
+# Python 编译文件
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg-info/
+*.egg
+dist-info/
+
+# 虚拟环境
+.venv/
+venv/
+env/
+
+# PyInstaller 打包产物与缓存
+build/
+dist/
+*.spec.bak
+
+# 临时文件
+tmpPic/
+_temp_*.txt
+_analysis_result_*.txt
+_vision_*.txt
+_hd_files.txt
+_id_results.txt
+resp.json
+
+# 测试截图产物
+tests/dist/
+
+# 文档生成目录
+docs/
+
+# IDE / 编辑器
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 系统文件
+Thumbs.db
+Desktop.ini
+.DS_Store
+
+# 日志文件
+*.log
+_wechat_debug.log
+_weather_debug.log
+_weather_dialog_crash.log
