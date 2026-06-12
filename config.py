@@ -100,6 +100,8 @@ BUBBLE_STYLE: str = _ui.get("bubble_style", _BUBBLE_STYLE_DEFAULT)
 # ===========================================================================
 _health = _load_json("health.json")
 
+WORK_HOURS_CONFIGURED: bool = _health.get("work_hours_configured", False)
+
 HEALTH_REMINDER_INTERVAL_S: int = _health.get("health_reminder_interval_s", 3600)
 HEALTH_WORK_HOURS: list[tuple[int, int, int, int]] = [
     tuple(item) for item in _health.get("health_work_hours", [
@@ -109,6 +111,19 @@ HEALTH_WORK_HOURS: list[tuple[int, int, int, int]] = [
 ]
 HEALTH_REMINDER_TITLE: str = _health.get("health_reminder_title", "健康提醒")
 HEALTH_REMINDER_MSG: str = _health.get("health_reminder_msg", "辛苦了，喝点水动一下吧~")
+
+HEALTH_REMINDER_BY_ELAPSED: dict[str, str] = _health.get("health_reminder_by_elapsed", {
+    "1": "辛苦了，喝杯水，转转手腕活动一下~",
+    "2": "辛苦了，站起来伸个懒腰，扭扭腰~",
+    "3": "辛苦了，喝点水，闭眼休息一下眼睛~",
+    "4": "辛苦了，转转脖子，活动一下颈椎~",
+    "5": "辛苦了，站起来走动走动，扭扭腰~",
+    "6": "辛苦了，做几下手腕旋转，放松一下~",
+    "7": "辛苦了，远眺窗外，活动一下肩膀~",
+    "8": "辛苦了，站起来踮踮脚，活动下腿部~",
+    "9": "辛苦了，喝点水，转转手腕活动下颈椎~",
+    "default": "辛苦了，喝点水动一下吧~",
+})
 
 HEALTH_OFF_WORK_TIMES: list[tuple[int, int]] = [
     tuple(item) for item in _health.get("health_off_work_times", [

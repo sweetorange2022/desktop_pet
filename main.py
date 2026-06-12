@@ -44,6 +44,7 @@ from src.providers.weather_provider import WeatherProvider
 from src.ui.weather_dialog import WeatherDialog
 
 from src.ui.tray_manager import TrayManager
+from src.ui.work_hours_dialog import WorkHoursDialog
 from scripts._autostart import enable as _enable_autostart, is_enabled as _is_autostart_enabled
 from scripts._health_reminder import health_reminder
 
@@ -459,6 +460,18 @@ def main() -> int:
 
             _disable_autostart("HorseSmallNine")
 
+    def on_set_work_hours() -> None:
+        """弹出工作时间设置对话框。"""
+        dlg = WorkHoursDialog(window)
+        if dlg.exec_() == WorkHoursDialog.Accepted:
+            result = dlg.get_result()
+            if result:
+                import config as cfg_mod
+                wh = result["work_hours"]
+                ot = result["off_times"]
+                cfg_mod.HEALTH_WORK_HOURS = [tuple(x) for x in wh]
+                cfg_mod.HEALTH_OFF_WORK_TIMES = [tuple(x) for x in ot]
+
     window.set_quick_actions(
 
         source_names=source_names,
@@ -488,8 +501,14 @@ def main() -> int:
         on_weather_report=on_weather_report,
         on_toggle_autostart=on_toggle_autostart,
         autostart_enabled=_is_autostart_enabled("HorseSmallNine"),
+        on_set_work_hours=on_set_work_hours,
 
     )
+
+    # ----- 首次启动：弹出工作时间设置 -----
+    from config import WORK_HOURS_CONFIGURED
+    if not WORK_HOURS_CONFIGURED:
+        QTimer.singleShot(500, on_set_work_hours)
 
     # 连接健康提醒信号
 

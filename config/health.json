@@ -1,5 +1,6 @@
 {
     "comment": "健康提醒相关配置",
+    "work_hours_configured": false,
     "health_reminder_interval_s": 3600,
     "health_work_hours": [
         [
@@ -27,6 +28,18 @@
     ],
     "health_reminder_title": "Pet's Gentle Reminder",
     "health_reminder_msg": "辛苦了，喝点水动一下吧~",
+    "health_reminder_by_elapsed": {
+        "1": "辛苦了，喝杯水，转转手腕活动一下~",
+        "2": "辛苦了，站起来伸个懒腰，扭扭腰~",
+        "3": "辛苦了，喝点水，闭眼休息一下眼睛~",
+        "4": "辛苦了，转转脖子，活动一下颈椎~",
+        "5": "辛苦了，站起来走动走动，扭扭腰~",
+        "6": "辛苦了，做几下手腕旋转，放松一下~",
+        "7": "辛苦了，远眺窗外，活动一下肩膀~",
+        "8": "辛苦了，站起来踮踮脚，活动下腿部~",
+        "9": "辛苦了，喝点水，转转手腕活动下颈椎~",
+        "default": "辛苦了，喝点水动一下吧~"
+    },
     "health_encouragements": [
         "加油，坚持就是胜利！",
         "专注工作，也要照顾好自己~",

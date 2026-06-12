@@ -16,6 +16,7 @@ from PySide6.QtCore import QObject, QTimer, Signal
 from config import (
     HEALTH_ENCOURAGEMENTS,
     HEALTH_OFF_WORK_TIMES,
+    HEALTH_REMINDER_BY_ELAPSED,
     HEALTH_REMINDER_INTERVAL_S,
     HEALTH_REMINDER_MSG,
     HEALTH_REMINDER_TITLE,
@@ -138,9 +139,15 @@ class HealthReminderProvider(InfoProvider):
             self._last_reminder_hour = h
             # 每次提醒随机选一条鼓励语
             self._encouragement = random.choice(HEALTH_ENCOURAGEMENTS)
+            # 根据当前是该段工作的第几个小时，选择对应提醒文案
+            elapsed_h = self._get_elapsed_hours(now)
+            msg = HEALTH_REMINDER_BY_ELAPSED.get(
+                str(elapsed_h),
+                HEALTH_REMINDER_BY_ELAPSED.get("default", HEALTH_REMINDER_MSG),
+            )
             self.reminder_triggered.emit(
                 HEALTH_REMINDER_TITLE,
-                HEALTH_REMINDER_MSG,
+                msg,
             )
 
         # 计算下一个整点提醒时间
@@ -228,6 +235,24 @@ class HealthReminderProvider(InfoProvider):
                         return f"{mins}分钟"
 
         return ""
+
+    def _get_elapsed_hours(self, now: Optional[datetime] = None) -> int:
+        """计算当前是该段工作的第几个小时（从1开始）。
+
+        遍历 HEALTH_WORK_HOURS，找到当前时间所在的段，
+        用 (当前时间 - 该段起始时间) 得到已工作小时数。
+        如 9:00→1, 10:00→2, 13:30→1（下午段重新计数）。
+        """
+        if now is None:
+            now = datetime.now()
+        current_minutes = now.hour * 60 + now.minute
+        for sh, sm, eh, em in HEALTH_WORK_HOURS:
+            start = sh * 60 + sm
+            end = eh * 60 + em
+            if start <= current_minutes < end:
+                elapsed = current_minutes - start
+                return max(1, elapsed // 60 + 1)
+        return 1
 
     def _get_next_session_info(self, now: Optional[datetime] = None) -> str:
         """非工作时段时，显示下一段工作时间信息。"""

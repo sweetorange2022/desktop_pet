@@ -13,12 +13,13 @@ ROOT = Path(__file__).parent
 MAIN = ROOT / "main.py"
 ASSETS = ROOT / "assets"
 ICON = ASSETS / "ico" / "cat.ico"
-DIST = ROOT / "dist"
+DIST = ROOT / "release"
 
 # hidden-import: weather_image 在 weather_dialog.on_send() 中被动态导入，
 # PyInstaller 静态分析无法自动检测到
 HIDDEN_IMPORTS = [
     "src.ui.weather_image",
+    "src.ui.work_hours_dialog",
     "mss",
     "mss.tools",
     "PIL.ImageGrab",
@@ -89,7 +90,7 @@ if result.returncode == 0:
     else:
         print("")
         print("打包完成，但未找到预期输出文件: {0}".format(exe_path))
-        print("请检查 dist/ 目录下的实际输出文件名。")
+        print("请检查 release/ 目录下的实际输出文件名。")
 else:
     print("")
     print(f"打包失败，退出码：{result.returncode}")

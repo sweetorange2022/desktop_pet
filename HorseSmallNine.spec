@@ -2,11 +2,11 @@
 
 
 a = Analysis(
-    ['g:\\desktop_pet\\main.py'],
+    ['g:\\Pet_Git\\desktop_pet\\main.py'],
     pathex=[],
     binaries=[],
-    datas=[('g:\\desktop_pet\\assets', 'assets'), ('g:\\desktop_pet\\config', 'config'), ('g:\\desktop_pet\\src', 'src'), ('g:\\desktop_pet\\schedule.json', '.')],
-    hiddenimports=['src.ui.weather_image', 'mss', 'mss.tools', 'PIL.ImageGrab', 'src.services.screen_recorder', 'imageio', 'imageio.plugins.ffmpeg'],
+    datas=[('g:\\Pet_Git\\desktop_pet\\assets', 'assets'), ('g:\\Pet_Git\\desktop_pet\\config', 'config'), ('g:\\Pet_Git\\desktop_pet\\src', 'src'), ('g:\\Pet_Git\\desktop_pet\\schedule.json', '.')],
+    hiddenimports=['src.ui.weather_image', 'src.ui.work_hours_dialog', 'mss', 'mss.tools', 'PIL.ImageGrab', 'src.services.screen_recorder', 'imageio', 'imageio.plugins.ffmpeg'],
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
@@ -35,6 +35,6 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    version='g:\\desktop_pet\\docs\\version_info.txt',
-    icon=['g:\\desktop_pet\\assets\\ico\\cat.ico'],
+    version='g:\\Pet_Git\\desktop_pet\\docs\\version_info.txt',
+    icon=['g:\\Pet_Git\\desktop_pet\\assets\\ico\\cat.ico'],
 )

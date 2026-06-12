@@ -27,6 +27,7 @@ class TrayManager:
         on_weather_report: Optional[Callable[[], None]] = None,
         on_toggle_autostart: Optional[Callable[[bool], None]] = None,
         autostart_enabled: bool = False,
+        on_set_work_hours: Optional[Callable[[], None]] = None,
     ) -> None:
         self._parent = parent
         self._tray = QSystemTrayIcon(parent)
@@ -73,6 +74,12 @@ class TrayManager:
             act_test = QAction("测试提醒", parent)
             act_test.triggered.connect(on_test_health)
             self._menu.addAction(act_test)
+
+        # 设置工作时间
+        if on_set_work_hours is not None:
+            act_work_hours = QAction("设置工作时间", parent)
+            act_work_hours.triggered.connect(on_set_work_hours)
+            self._menu.addAction(act_work_hours)
 
         # 开机自启
         if on_toggle_autostart is not None:
