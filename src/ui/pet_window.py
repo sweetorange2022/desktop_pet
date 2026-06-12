@@ -21,14 +21,99 @@ def _tmp_pic_path(name: str) -> str:
     return os.path.join(d, name)
 
 def _open_in_explorer(path: str) -> None:
-    """在资源管理器中打开文件或文件夹。"""
+    """在资源管理器中打开文件或文件夹。
+
+    如果目标文件夹已有资源管理器窗口打开，则将其置顶，
+    否则新建一个窗口。
+    """
     import subprocess
+    import ctypes
 
     norm = os.path.normpath(path)
-    if os.path.isfile(norm):
-        subprocess.Popen(["explorer", "/select,", norm])
-    elif os.path.isdir(norm):
-        subprocess.Popen(["explorer", norm])
+    target_dir = os.path.dirname(norm) if os.path.isfile(norm) else norm
+    target_dir = os.path.normpath(target_dir)
+
+    # 尝试查找已有的资源管理器窗口
+    found = False
+    try:
+        import ctypes
+        from ctypes import wintypes
+
+        user32 = ctypes.windll.user32
+        ole32 = ctypes.windll.ole32
+
+        # CoInitialize for Shell COM
+        ole32.CoInitialize(None)
+
+        # 枚举顶层窗口
+        EnumWindows = user32.EnumWindows
+        GetClassName = user32.GetClassNameW
+        IsWindowVisible = user32.IsWindowVisible
+
+        class WINDOWINFO(ctypes.Structure):
+            _fields_ = [
+                ("cbSize", wintypes.DWORD),
+                ("rcWindow", wintypes.RECT),
+                ("rcClient", wintypes.RECT),
+                ("dwStyle", wintypes.DWORD),
+                ("dwExStyle", wintypes.DWORD),
+                ("dwWindowStatus", wintypes.DWORD),
+                ("cxWindowBorders", wintypes.UINT),
+                ("cyWindowBorders", wintypes.UINT),
+                ("atomWindowType", wintypes.ATOM),
+                ("wCreatorVersion", wintypes.WORD),
+            ]
+
+        WNDENUMPROC = ctypes.WINFUNCTYPE(wintypes.BOOL, wintypes.HWND, wintypes.LPARAM)
+        matched_hwnds: list[int] = []
+
+        def _enum_cb(hwnd, _lparam):
+            if not IsWindowVisible(hwnd):
+                return True
+            cls = ctypes.create_unicode_buffer(256)
+            GetClassName(hwnd, cls, 256)
+            if cls.value != "CabinetWClass":
+                return True
+            # 通过 COM 获取 Shell 窗口的路径
+            try:
+                from win32com.client import Dispatch
+                shell = Dispatch("Shell.Application")
+                for w in shell.Windows():
+                    if int(w.HWND) == hwnd:
+                        loc = w.LocationURL or ""
+                        # file:///C:/path -> C:\path
+                        if loc.startswith("file:///"):
+                            w_path = loc[8:].replace("/", "\\")
+                            # URL decode
+                            import urllib.parse
+                            w_path = urllib.parse.unquote(w_path)
+                            if os.path.normpath(w_path) == target_dir:
+                                matched_hwnds.append(hwnd)
+                        break
+            except Exception:
+                pass
+            return True
+
+        EnumWindows(WNDENUMPROC(_enum_cb), 0)
+
+        if matched_hwnds:
+            # 找到了已有窗口，置顶
+            hwnd = matched_hwnds[0]
+            SW_RESTORE = 9
+            SW_SHOW = 5
+            user32.ShowWindow(hwnd, SW_RESTORE)
+            user32.SetForegroundWindow(hwnd)
+            found = True
+
+    except Exception:
+        found = False
+
+    if not found:
+        # 没有已有窗口，新建
+        if os.path.isfile(norm):
+            subprocess.Popen(["explorer", "/select,", norm])
+        elif os.path.isdir(norm):
+            subprocess.Popen(["explorer", norm])
 
 from PySide6.QtCore import Qt, QTimer, QRectF, QRect, QPoint
 
@@ -1078,10 +1163,7 @@ class ScreenshotOverlay(QWidget):
                 from src.ui.weather_image import copy_image_to_clipboard
                 clip_ok = copy_image_to_clipboard(path)
                 if self._on_saved:
-                    if clip_ok:
-                        self._on_saved(path)
-                    else:
-                        self._on_saved(path)
+                    self._on_saved(path)
 
         finally:
 

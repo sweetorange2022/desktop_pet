@@ -272,29 +272,75 @@ def _draw_rounded_rect(
     )
 
 def copy_image_to_clipboard(image_path: str) -> bool:
-    """通过 PowerShell 将图片复制到系统剪贴板。
+    """将图片复制到系统剪贴板。
 
-    使用 .NET 的 System.Windows.Forms.Clipboard.SetImage()，
-    这是 Windows 上将图片放到剪贴板最可靠的方式。
+    优先使用 Qt QClipboard（最可靠），回退到 PowerShell（PNG 兼容），最后 Win32。
     """
     if not os.path.isfile(image_path):
         return False
 
-    # 转义路径（PowerShell 字符串中的反斜杠不需要额外转义）
-    ps_script = (
-        f'Add-Type -AssemblyName System.Windows.Forms; '
-        f'$img = [System.Drawing.Image]::FromFile("{image_path}"); '
-        f'[System.Windows.Forms.Clipboard]::SetImage($img); '
-        f'$img.Dispose(); '
-        f'Write-Output "OK"'
-    )
+    # 方案1: 使用 Qt QClipboard（最可靠，Ctrl+V 兼容性最好）
     try:
+        from PySide6.QtWidgets import QApplication
+        from PySide6.QtGui import QPixmap, QClipboard
+        app = QApplication.instance()
+        if app is not None:
+            clipboard: QClipboard = app.clipboard()
+            pixmap = QPixmap(image_path)
+            if not pixmap.isNull():
+                clipboard.setPixmap(pixmap)
+                return True
+    except Exception:
+        pass
+
+    # 方案2: PowerShell（PNG 兼容性好）
+    try:
+        # PowerShell 单引号字符串中仅需将 ' 转义为 ''
+        safe_path = image_path.replace("'", "''")
+        ps_script = (
+            f"Add-Type -AssemblyName System.Windows.Forms; "
+            f"$img = [System.Drawing.Image]::FromFile('{safe_path}'); "
+            f"[System.Windows.Forms.Clipboard]::SetImage($img); "
+            f"$img.Dispose(); "
+            f'Write-Output "OK"'
+        )
         result = subprocess.run(
             ["powershell", "-NoProfile", "-Command", ps_script],
-            capture_output=True,
-            text=True,
-            timeout=10,
+            capture_output=True, text=True, timeout=10,
         )
-        return result.returncode == 0 and result.stdout.strip() == "OK"
+        if result.returncode == 0 and result.stdout.strip() == "OK":
+            return True
     except (subprocess.TimeoutExpired, FileNotFoundError):
-        return False
+        pass
+
+    # 方案3: Win32 GDI API（仅支持 BMP）
+    try:
+        import ctypes
+        user32 = ctypes.windll.user32
+        gdi32 = ctypes.windll.gdi32
+
+        IMAGE_BITMAP = 0
+        LR_LOADFROMFILE = 0x00000010
+
+        hbitmap = gdi32.LoadImageW(
+            0, image_path, IMAGE_BITMAP, 0, 0, LR_LOADFROMFILE
+        )
+        if not hbitmap:
+            return False
+
+        if not user32.OpenClipboard(0):
+            gdi32.DeleteObject(hbitmap)
+            return False
+
+        try:
+            user32.EmptyClipboard()
+            CF_BITMAP = 2
+            user32.SetClipboardData(CF_BITMAP, hbitmap)
+        finally:
+            user32.CloseClipboard()
+
+        return True
+    except Exception:
+        pass
+
+    return False
