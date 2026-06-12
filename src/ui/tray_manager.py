@@ -28,6 +28,7 @@ class TrayManager:
         on_toggle_autostart: Optional[Callable[[bool], None]] = None,
         autostart_enabled: bool = False,
         on_set_work_hours: Optional[Callable[[], None]] = None,
+        on_show_schedule: Optional[Callable[[], None]] = None,
     ) -> None:
         self._parent = parent
         self._tray = QSystemTrayIcon(parent)
@@ -74,6 +75,12 @@ class TrayManager:
             act_test = QAction("测试提醒", parent)
             act_test.triggered.connect(on_test_health)
             self._menu.addAction(act_test)
+
+        # 课程表
+        if on_show_schedule is not None:
+            act_schedule = QAction("课程模式", parent)
+            act_schedule.triggered.connect(on_show_schedule)
+            self._menu.addAction(act_schedule)
 
         # 设置工作时间
         if on_set_work_hours is not None:

@@ -33,6 +33,7 @@ if os.name == "nt":
     ctypes.windll.kernel32.FreeConsole()
 
 from src.providers.health_provider import HealthReminderProvider
+from src.providers.schedule_provider import ScheduleProvider
 
 from src.ui.tray_manager import TrayManager
 from src.ui.work_hours_dialog import WorkHoursDialog
@@ -219,6 +220,12 @@ def main() -> int:
 
     health_provider = HealthReminderProvider()
 
+    if getattr(sys, "frozen", False):
+        sched_path = str(Path(sys._MEIPASS) / "schedule.json")
+    else:
+        sched_path = str(Path(__file__).parent / "schedule.json")
+    sched_provider = ScheduleProvider(schedule_path=sched_path)
+
     window.show()
 
     def on_quit() -> None:
@@ -256,6 +263,30 @@ def main() -> int:
                 cfg_mod.HEALTH_WORK_HOURS = [tuple(x) for x in wh]
                 cfg_mod.HEALTH_OFF_WORK_TIMES = [tuple(x) for x in ot]
 
+    # 课程模式定时刷新
+    _schedule_refresh_timer = QTimer()
+    _schedule_refresh_timer.setInterval(60000)  # 每分钟刷新
+    _schedule_mode_active = False
+
+    def _refresh_schedule_bubble() -> None:
+        """刷新课程模式气泡内容。"""
+        if not _schedule_mode_active:
+            return
+        sched_provider.update()
+        bx, by = window._calc_bubble_position()
+        window._bubble.show_bubble(bx, by, auto_hide=False)
+
+    _schedule_refresh_timer.timeout.connect(_refresh_schedule_bubble)
+
+    def on_show_schedule() -> None:
+        """切换到课程模式：在桌宠右侧显示今日课程气泡（不弹系统通知）。"""
+        nonlocal _schedule_mode_active
+        _schedule_mode_active = True
+        window._bubble.set_provider(sched_provider)
+        bx, by = window._calc_bubble_position()
+        window._bubble.show_bubble(bx, by, auto_hide=False)
+        _schedule_refresh_timer.start()
+
     tray = TrayManager(
 
         parent=window,
@@ -267,6 +298,7 @@ def main() -> int:
         on_toggle_autostart=on_toggle_autostart,
         autostart_enabled=_is_autostart_enabled("HorseSmallNine"),
         on_set_work_hours=on_set_work_hours,
+        on_show_schedule=on_show_schedule,
 
     )
 
