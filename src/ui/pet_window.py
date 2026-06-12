@@ -77,7 +77,7 @@ from PySide6.QtWidgets import (
 class _SaveNotice(QWidget):
     """保存成功后的路径提示条（自动打开位置 + 可再次打开）。"""
 
-    def __init__(self, anchor: QWidget, path: str, title: str) -> None:
+    def __init__(self, anchor: QWidget, path: str, title: str, clipboard_hint: str = "") -> None:
         super().__init__(
             None,
             Qt.WindowType.Tool | Qt.WindowType.FramelessWindowHint | Qt.WindowType.WindowStaysOnTopHint,
@@ -100,6 +100,11 @@ class _SaveNotice(QWidget):
         path_lbl.setWordWrap(True)
         path_lbl.setMaximumWidth(420)
         layout.addWidget(path_lbl)
+
+        if clipboard_hint:
+            hint_lbl = QLabel(clipboard_hint)
+            hint_lbl.setStyleSheet("QLabel{color:#8BC34A;font:12px 'Microsoft YaHei';}")
+            layout.addWidget(hint_lbl)
 
         btn_row = QHBoxLayout()
         btn_row.addStretch()
@@ -1068,8 +1073,15 @@ class ScreenshotOverlay(QWidget):
 
             ok = _capture_region_to_path(screen, r, path)
 
-            if ok and os.path.isfile(path) and os.path.getsize(path) > 0 and self._on_saved:
-                self._on_saved(path)
+            if ok and os.path.isfile(path) and os.path.getsize(path) > 0:
+                # 截图后自动复制到剪贴板
+                from src.ui.weather_image import copy_image_to_clipboard
+                clip_ok = copy_image_to_clipboard(path)
+                if self._on_saved:
+                    if clip_ok:
+                        self._on_saved(path)
+                    else:
+                        self._on_saved(path)
 
         finally:
 
@@ -1849,15 +1861,19 @@ class PetWindow(QWidget):
 
         self._on_test_health = on_test_health
 
-    def _notify_save_result(self, path: str, title: str = "已保存") -> None:
-        """保存成功后自动打开位置并显示路径提示。"""
+    def _notify_save_result(self, path: str, title: str = "已保存", clipboard_hint: str = "") -> None:
+        """保存成功后自动打开位置并显示路径提示。
+
+        Args:
+            clipboard_hint: 非空时在提示条中附加此文字（如"已复制到剪贴板，Ctrl+V 粘贴"）。
+        """
         _open_in_explorer(path)
         if self._save_notice is not None:
             try:
                 self._save_notice.close()
             except RuntimeError:
                 pass
-        self._save_notice = _SaveNotice(self, path, title)
+        self._save_notice = _SaveNotice(self, path, title, clipboard_hint=clipboard_hint)
         self._save_notice.show()
 
     def _end_screenshot_session(self) -> None:
@@ -1888,7 +1904,9 @@ class PetWindow(QWidget):
 
                 on_session_end=self._end_screenshot_session,
 
-                on_saved=lambda p: self._notify_save_result(p, "截图已保存"),
+                on_saved=lambda p: self._notify_save_result(
+                    p, "截图已保存", clipboard_hint="✅ 已复制到剪贴板，Ctrl+V 粘贴"
+                ),
 
                 session_overlays=self._overlays,
 
