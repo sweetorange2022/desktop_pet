@@ -22,8 +22,6 @@ from PySide6.QtWidgets import QApplication
 
 from config import PET_SIZE
 
-from src.core.monitor import SystemMonitor
-
 from src.ui.pet_window import PetWindow
 
 import ctypes
@@ -34,14 +32,7 @@ if os.name == "nt":
 
     ctypes.windll.kernel32.FreeConsole()
 
-from src.providers.system_provider import SystemProvider
-
-from src.providers.schedule_provider import ScheduleProvider
-
 from src.providers.health_provider import HealthReminderProvider
-
-from src.providers.weather_provider import WeatherProvider
-from src.ui.weather_dialog import WeatherDialog
 
 from src.ui.tray_manager import TrayManager
 from src.ui.work_hours_dialog import WorkHoursDialog
@@ -226,225 +217,18 @@ def main() -> int:
 
     window.setWindowIcon(QIcon(tray_icon))
 
-    monitor = SystemMonitor()
-
-    # 信息提供者
-
-    sys_provider = SystemProvider()
-
-    if getattr(sys, "frozen", False):
-
-        sched_path = str(Path(sys._MEIPASS) / "schedule.json")
-
-    else:
-
-        sched_path = str(Path(__file__).parent / "schedule.json")
-
-    sched_provider = ScheduleProvider(schedule_path=sched_path)
-
     health_provider = HealthReminderProvider()
 
-    weather_provider = WeatherProvider()
-
-    providers = {"系统监控": sys_provider, "课程表": sched_provider, "健康提醒": health_provider}
-
-    source_names = ["纯净模式", "系统监控", "课程表", "健康提醒"]
-
-    current_source = "系统监控"
-
-    is_pure_mode = False
-
-    window._bubble.set_provider(sys_provider)
-
-    window.set_pure_mode(False)
-
     window.show()
-
-    bx, by = window._calc_bubble_position()
-
-    window._bubble.show_bubble(bx, by, auto_hide=False)
-
-    monitor.metrics_updated.connect(window._bubble.update_metrics)
-    monitor.metrics_updated.connect(window.on_metrics_updated)
-
-    weather_provider.data_updated.connect(window._bubble._refresh)
-
-    _restore_timer = QTimer()
-
-    _restore_timer.setSingleShot(True)
-
-    def _restore_source() -> None:
-
-        """Restore original mode after health reminder"""
-
-        nonlocal current_source, is_pure_mode
-
-        if current_source == "纯净模式":
-
-            window.set_pure_mode(True)
-
-        else:
-
-            window.set_pure_mode(False)
-
-            window._bubble.set_provider(providers[current_source])
-
-            bx, by = window._calc_bubble_position()
-
-            window._bubble.show_bubble(bx, by, auto_hide=False)
-
-    _restore_timer.timeout.connect(_restore_source)
-
-    def on_switch_source(name: str) -> None:
-
-        """Switch info source"""
-
-        nonlocal current_source, is_pure_mode
-
-        if name == "纯净模式":
-
-            is_pure_mode = True
-
-            current_source = name
-
-            window.set_pure_mode(True)
-
-            window._bubble.set_provider(None)
-
-            bx, by = window._calc_bubble_position()
-
-            window._bubble.show_bubble(bx, by, auto_hide=False)
-
-        else:
-
-            is_pure_mode = False
-
-            current_source = name
-
-            window.set_pure_mode(False)
-
-            window._bubble.set_provider(providers[name])
-
-            bx, by = window._calc_bubble_position()
-
-            window._bubble.show_bubble(bx, by, auto_hide=False)
-
-        if name == "天气预报":
-
-            weather_provider.refresh_now()
-
-        tray.set_active_source(name)
-
-    _schedule_timer = None
 
     def on_quit() -> None:
 
         """Exit the application."""
 
-        if _schedule_timer is not None:
-            _schedule_timer.stop()
-        monitor.stop()
         health_provider.stop()
-        weather_provider.stop()
         if hasattr(window, "_cancel_rec"):
             window._cancel_rec()
         app.quit()
-
-    def on_weather_report() -> None:
-
-        import logging
-
-        import os as _os
-        _log_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "tmpPic")
-        _os.makedirs(_log_dir, exist_ok=True)
-        logging.basicConfig(
-            filename=_os.path.join(_log_dir, "_weather_debug.log"),
-            level=logging.DEBUG,
-            force=True,
-        )
-
-        logging.debug("on_weather_report called")
-
-        try:
-
-            dlg = WeatherDialog(window)
-
-            dlg.exec_()
-
-        except Exception as _e:
-
-            import traceback
-
-            import os as _os
-            _log_dir = _os.path.join(_os.path.dirname(_os.path.abspath(__file__)), "tmpPic")
-            _os.makedirs(_log_dir, exist_ok=True)
-            with open(_os.path.join(_log_dir, "_weather_dialog_crash.log"), "w", encoding="utf-8") as _f:
-
-                _f.write(traceback.format_exc())
-
-    def on_set_city() -> None:
-
-        """弹出城市选择对话框，更新天气配置并刷新。"""
-
-        from PySide6.QtWidgets import QInputDialog, QLineEdit, QMessageBox
-        from src.services.weather import geo_lookup
-        import json
-
-        from pathlib import Path
-
-        import config as cfg_mod
-
-        city, ok = QInputDialog.getText(window, "设置城市", "输入城市名称：", QLineEdit.Normal, cfg_mod.WEATHER_CITY)
-
-        if not ok or not city.strip():
-
-            return
-
-        city = city.strip()
-
-        result = geo_lookup(city)
-
-        if result is None:
-
-            QMessageBox.warning(window, "查询失败", f"未找到城市「{city}」，请检查名称")
-
-            return
-
-        wj = Path(__file__).parent / "config" / "weather.json"
-
-        try:
-
-            with open(wj, "r", encoding="utf-8") as f:
-
-                cfg = json.load(f)
-
-        except (FileNotFoundError, json.JSONDecodeError):
-
-            cfg = {}
-
-        cfg["weather_city"] = result["city"]
-
-        cfg["weather_latitude"] = result["lat"]
-
-        cfg["weather_longitude"] = result["lon"]
-
-        with open(wj, "w", encoding="utf-8") as f:
-
-            json.dump(cfg, f, ensure_ascii=False, indent=2)
-
-        cfg_mod.WEATHER_CITY = result["city"]
-
-        cfg_mod.WEATHER_LATITUDE = result["lat"]
-
-        cfg_mod.WEATHER_LONGITUDE = result["lon"]
-
-        weather_provider._alert = None
-
-        weather_provider._tomorrow_weather = None
-
-        weather_provider._last_check_time = 0.0
-
-        weather_provider.refresh_now()
 
     def on_toggle_autostart(enabled: bool) -> None:
 
@@ -472,33 +256,14 @@ def main() -> int:
                 cfg_mod.HEALTH_WORK_HOURS = [tuple(x) for x in wh]
                 cfg_mod.HEALTH_OFF_WORK_TIMES = [tuple(x) for x in ot]
 
-    window.set_quick_actions(
-
-        source_names=source_names,
-
-        on_switch_source=on_switch_source,
-
-        on_weather_report=on_weather_report,
-
-        on_test_health=health_provider.test_reminder,
-
-    )
     tray = TrayManager(
 
         parent=window,
 
         on_quit=on_quit,
 
-        on_switch_source=on_switch_source,
-
-        source_names=source_names,
-
-        current_source=current_source,
-
         icon_path=tray_icon,
 
-        on_test_health=health_provider.test_reminder,
-        on_weather_report=on_weather_report,
         on_toggle_autostart=on_toggle_autostart,
         autostart_enabled=_is_autostart_enabled("HorseSmallNine"),
         on_set_work_hours=on_set_work_hours,
@@ -520,56 +285,9 @@ def main() -> int:
 
     # 启动
 
-    monitor.start()
-
     health_provider.start()
 
-    weather_provider.start()
-
     tray.show()
-
-    # ----- 定时发送天气（每天 20:00） -----
-    def _send_tomorrow_weather():
-        """获取厦门明天天气，生成卡片，发送微信。"""
-        from datetime import datetime as _dt
-        now = _dt.now()
-        # 只在 20:00-20:01 之间触发一次
-        if now.hour != 20 or now.minute != 0:
-            return
-
-        try:
-            from src.services.weather import fetch_tomorrow_weather
-            from src.ui.weather_image import render_weather_card
-            from src.services.wechat_sender import send_wechat_image
-            import os, tempfile
-
-            weather = fetch_tomorrow_weather()
-            if weather is None:
-                return
-
-            # 构造简单的卡片文本
-            card_text = (
-                f"\U0001f4cd \u53a6\u95e8\n"
-                f"{weather.date}\n\n"
-                f"\U0001f321 {weather.temp_min:.0f}~{weather.temp_max:.0f}\u2103  "
-                f"\u2601 {weather.weather_desc}\n"
-                f"\U0001f4a8 \u98ce\u901f\uff1a{weather.wind_speed_max:.0f}km/h\n"
-                f"\U0001f327 \u964d\u6c34\uff1a{weather.rain_prob_max:.0f}%\n\n"
-                f"--- \u9a6c\u5c0f\u4e5d\u6e29\u99a8\u63d0\u793a"
-            )
-
-            tmp = tempfile.NamedTemporaryFile(suffix=".png", delete=False)
-            tmp.close()
-            render_weather_card(card_text, tmp.name)
-            send_wechat_image("\u695a\u695a\u5927\u9b54\u738b(\u61d2\u7f8a\u7f8a\u7248)", tmp.name)
-            os.unlink(tmp.name)
-        except Exception as _e:
-            import logging
-            logging.warning(f"\u5b9a\u65f6\u53d1\u9001\u5929\u6c14\u5931\u8d25: {_e}")
-
-    _schedule_timer = QTimer()
-    _schedule_timer.timeout.connect(_send_tomorrow_weather)
-    _schedule_timer.start(60000)  # 每分钟检查一次
 
     return app.exec()
 
