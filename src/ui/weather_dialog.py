@@ -50,7 +50,7 @@ class WeatherDialog(QDialog):
 
         self._city = WEATHER_CITY
 
-        self._target = "楚楚大魔王(懒羊羊版)"
+        self._target = "楚楚"
 
         # 智能搜索防抖定时器
 
@@ -94,7 +94,7 @@ class WeatherDialog(QDialog):
 
         friend_row.addWidget(QLabel("发送给："))
 
-        self.friend_input = QLineEdit("Teemo")
+        self.friend_input = QLineEdit("楚楚")
 
         friend_row.addWidget(self.friend_input)
 
