@@ -12,6 +12,6 @@
     "screen_margin_right": 30,
     "screen_margin_bottom": 30,
     "default_source": "纯净模式",
-    "source_names": ["纯净模式", "系统监控", "课程表", "健康提醒", "天气预警"],
+    "source_names": ["纯净模式", "系统监控", "课程表", "健康提醒", "天气预警", "AI 余额"],
     "bubble_style": "    QWidget#info_bubble {\n        background-color: rgba(20, 20, 20, 230);\n        border: 1px solid rgba(255, 255, 255, 80);\n        border-radius: 12px;\n    }\n    QLabel {\n        color: #F0F0F0;\n        font-family: \"Microsoft YaHei\", \"Consolas\", \"Segoe UI\", sans-serif;\n        font-size: 13px;\n        font-weight: bold;\n        letter-spacing: 1px;\n    }"
 }

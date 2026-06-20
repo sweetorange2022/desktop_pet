@@ -1315,6 +1315,10 @@ class PetWindow(QWidget):
 
                 self._pet_pixmap = self._create_placeholder()
 
+            else:
+
+                self._dynamic_resize(self._pet_pixmap)
+
         self._bubble = InfoBubble()
 
         self._pure_mode: bool = False
@@ -1330,6 +1334,20 @@ class PetWindow(QWidget):
         self._on_test_health = on_test_health
 
         self._save_notice: _SaveNotice | None = None
+
+        # AI 余额悬浮显示
+        self._ai_balance_service = None  # 外部注入
+        self._balance_overlay_items: list[dict] = []
+        self._balance_visible: bool = False
+        self._balance_hover_timer = QTimer(self)
+        self._balance_hover_timer.setSingleShot(True)
+        self._balance_hover_timer.setInterval(2000)  # 悬停 2 秒触发
+        self._balance_hover_timer.timeout.connect(self._on_balance_hover_timeout)
+        self._balance_hide_timer = QTimer(self)
+        self._balance_hide_timer.setSingleShot(True)
+        self._balance_hide_timer.setInterval(15000)  # 显示 15 秒后隐藏
+        self._balance_hide_timer.timeout.connect(self._hide_balance_overlay)
+        self._balance_hovering: bool = False
 
         self._border_angle: float = 0.0
 
@@ -1437,6 +1455,10 @@ class PetWindow(QWidget):
 
             self._init_movie(video_path)
 
+            from config import PET_SIZE
+
+            self.setFixedSize(PET_SIZE, PET_SIZE)
+
         else:
 
             self._pet_pixmap = QPixmap(video_path)
@@ -1444,6 +1466,10 @@ class PetWindow(QWidget):
             if self._pet_pixmap.isNull():
 
                 self._pet_pixmap = self._create_placeholder()
+
+            else:
+
+                self._dynamic_resize(self._pet_pixmap)
 
         if video_path in self._video_list:
 
@@ -1460,6 +1486,30 @@ class PetWindow(QWidget):
         next_idx = (self._current_video_index + 1) % len(self._video_list)
 
         self.switch_video(self._video_list[next_idx])
+
+    def pick_image_from_dialog(self) -> None:
+        """弹出文件选择对话框，选择图片。"""
+        from PySide6.QtWidgets import QFileDialog
+        import pathlib
+
+        assets_dir = str(pathlib.Path(__file__).parent.parent.parent / "assets" / "images")
+        path, _ = QFileDialog.getOpenFileName(
+            self, "选择图片", assets_dir,
+            "Images (*.png *.jpg *.jpeg *.bmp *.gif *.webp *.ico)"
+        )
+        if not path:
+            return
+        self.switch_video(path)
+
+    def _dynamic_resize(self, pixmap) -> None:
+        """根据图片实际大小动态调整窗口尺寸，显示为原图约1/2大小。"""
+        from config import PET_SIZE
+        w = pixmap.width() // 2
+        h = pixmap.height() // 2
+        new_size = max(32, max(w, h))
+        if new_size > PET_SIZE:
+            new_size = PET_SIZE
+        self.setFixedSize(new_size, new_size)
 
     @property
 
@@ -1545,6 +1595,46 @@ class PetWindow(QWidget):
 
         self.update()
 
+    # ---- AI 余额悬浮显示 ----
+
+    def set_ai_balance_service(self, service) -> None:
+        """外部注入 AI 余额查询服务。"""
+        self._ai_balance_service = service
+
+    def _on_balance_hover_timeout(self) -> None:
+        """鼠标悬停 2 秒后触发余额查询并显示。"""
+        if not self._balance_hovering:
+            return
+        if self._ai_balance_service is None:
+            return
+
+        # 注册回调：查询完成后在主线程更新显示
+        def _on_done():
+            QTimer.singleShot(100, self._update_balance_overlay)
+
+        self._ai_balance_service.set_on_update(_on_done)
+
+        # 先显示已有缓存数据，再后台刷新
+        self._update_balance_overlay()
+        self._ai_balance_service.refresh()
+
+        # 保底：2 秒后再刷新一次，确保异步结果能显示
+        QTimer.singleShot(2000, self._update_balance_overlay)
+
+    def _update_balance_overlay(self) -> None:
+        """更新余额叠加数据并触发重绘。"""
+        if self._ai_balance_service is None:
+            return
+        self._balance_overlay_items = self._ai_balance_service.get_overlay_items()
+        self._balance_visible = True
+        self._balance_hide_timer.start()  # 15 秒后自动隐藏
+        self.update()
+
+    def _hide_balance_overlay(self) -> None:
+        """隐藏余额叠加层。"""
+        self._balance_visible = False
+        self.update()
+
     def _draw_border(self, painter) -> None:
 
         """绘制炫彩呼吸边框——圆锥渐变，护眼暖色绕圈。"""
@@ -1609,7 +1699,8 @@ class PetWindow(QWidget):
 
         painter.setBrush(Qt.BrushStyle.NoBrush)
 
-        painter.drawRect(self._content_rect)
+        corner_radius = 12
+        painter.drawRoundedRect(self._content_rect, corner_radius, corner_radius)
 
     # ---- 绘制 ----
 
@@ -1645,7 +1736,17 @@ class PetWindow(QWidget):
 
         py = (self.height() - scaled.height()) // 2
 
+        # 圆角裁剪绘制
+        from PySide6.QtGui import QPainterPath
+        corner_radius = 12
+        clip_path = QPainterPath()
+        clip_path.addRoundedRect(
+            float(px), float(py), float(scaled.width()), float(scaled.height()),
+            corner_radius, corner_radius
+        )
+        painter.setClipPath(clip_path)
         painter.drawPixmap(px, py, scaled)
+        painter.setClipping(False)
 
         # 保存内容区域供边框绘制使用
 
@@ -1681,7 +1782,71 @@ class PetWindow(QWidget):
 
             )
 
+        # 绘制 AI 余额叠加层（使用窗口尺寸而非 content_rect，确保小图片也能显示）
+        if self._balance_visible and self._balance_overlay_items:
+            self._draw_balance_overlay(painter)
+
         painter.end()
+
+    def _draw_balance_overlay(self, painter: QPainter) -> None:
+        """在宠物图上绘制半透明余额信息（炫彩渐变+按钮）。"""
+        from PySide6.QtGui import QFont, QLinearGradient, QPen as QPen2
+
+        # 使用窗口整体区域而非 content_rect，避免图片太小时 overlay 消失
+        rect = QRectF(0, 0, float(self.width()), float(self.height()))
+        if rect.isNull() or rect.isEmpty():
+            return
+
+        # 半透明背景
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor(0, 0, 0, 180))
+        painter.drawRoundedRect(rect, 8, 8)
+
+        # 只显示有余额的项目（最多3个），不再显示按钮
+        balance_items = [item for item in self._balance_overlay_items if item.get("ok", False)]
+
+        # 根据图片大小自适应字号
+        content_w = int(rect.width())
+        font_size = max(9, min(14, content_w // 12))
+        line_h = font_size + 6
+
+        font = QFont("Consolas", font_size)
+        font.setBold(True)
+        painter.setFont(font)
+
+        x = int(rect.x()) + 6
+        y_start = int(rect.y()) + 6
+        w = content_w - 12
+
+        self._balance_clickable_rects = []
+
+        y = y_start
+        for i, item in enumerate(balance_items[:3]):
+            name = item.get("name", "")
+            text = item.get("text", "")
+
+            # 炫彩渐变文字
+            grad = QLinearGradient(float(x), float(y), float(x + w), float(y))
+            grad.setColorAt(0.0, QColor(0, 212, 255))
+            grad.setColorAt(0.5, QColor(123, 97, 255))
+            grad.setColorAt(1.0, QColor(180, 74, 255))
+            painter.setPen(QPen2(grad, 1))
+
+            # 缩短名称显示（如 DeepSeek → De 49.95）
+            short_name = name.split(" ")[0][:2]
+            balance_text = text.replace('¥', '').replace('$', '')
+            display = f"{short_name} {balance_text}"
+
+            # 余额不足 2 元时显示红色
+            try:
+                balance_val = float(balance_text)
+                if balance_val < 2:
+                    painter.setPen(QColor(255, 60, 60))
+            except (ValueError, TypeError):
+                pass
+
+            painter.drawText(x, y + font_size + 2, display)
+            y += line_h
 
     def _draw_pixmap(self, painter: QPainter, pixmap: QPixmap) -> None:
 
@@ -1711,9 +1876,19 @@ class PetWindow(QWidget):
 
     def mousePressEvent(self, event) -> None:  # noqa: N802
 
-        """记录拖拽开始位置，检测双击。"""
+        """记录拖拽开始位置，检测双击，处理余额查询链接点击。"""
 
         if event.button() == Qt.MouseButton.LeftButton:
+
+            # 检查是否点击了余额叠加层中的 "查询" 链接
+            if self._balance_visible and getattr(self, "_balance_clickable_rects", None):
+                import webbrowser
+                pos = event.position()
+                for item in self._balance_clickable_rects:
+                    if item["rect"].contains(pos):
+                        webbrowser.open(item["web_url"])
+                        event.accept()
+                        return
 
             import time
 
@@ -1787,7 +1962,10 @@ class PetWindow(QWidget):
 
     def enterEvent(self, event) -> None:  # noqa: N802
 
-        """鼠标进入时显示气泡（纯模式不显示）。"""
+        """鼠标进入时显示气泡（纯模式不显示），并启动余额悬停计时。"""
+
+        self._balance_hovering = True
+        self._balance_hover_timer.start()
 
         if not self._pure_mode:
 
@@ -1796,6 +1974,15 @@ class PetWindow(QWidget):
             self._bubble.show_bubble(bx, by)
 
         super().enterEvent(event)
+
+    def leaveEvent(self, event) -> None:  # noqa: N802
+
+        """鼠标离开时取消余额悬停计时。"""
+
+        self._balance_hovering = False
+        self._balance_hover_timer.stop()
+
+        super().leaveEvent(event)
 
     def moveEvent(self, event) -> None:  # noqa: N802
 

@@ -41,6 +41,8 @@ from src.providers.schedule_provider import ScheduleProvider
 from src.providers.health_provider import HealthReminderProvider
 
 from src.providers.weather_provider import WeatherProvider
+from src.services.ai_balance import AIBalanceService
+from src.ui.ai_accounts_dialog import AIAccountsDialog
 from src.ui.weather_dialog import WeatherDialog
 
 from src.ui.tray_manager import TrayManager
@@ -246,6 +248,9 @@ def main() -> int:
 
     weather_provider = WeatherProvider()
 
+    ai_balance_service = AIBalanceService()
+    window.set_ai_balance_service(ai_balance_service)
+
     providers = {"系统监控": sys_provider, "课程表": sched_provider, "健康提醒": health_provider}
 
     source_names = ["纯净模式", "系统监控", "课程表", "健康提醒"]
@@ -346,6 +351,7 @@ def main() -> int:
         monitor.stop()
         health_provider.stop()
         weather_provider.stop()
+        ai_balance_service.stop()
         if hasattr(window, "_cancel_rec"):
             window._cancel_rec()
         app.quit()
@@ -472,6 +478,13 @@ def main() -> int:
                 cfg_mod.HEALTH_WORK_HOURS = [tuple(x) for x in wh]
                 cfg_mod.HEALTH_OFF_WORK_TIMES = [tuple(x) for x in ot]
 
+    def on_ai_accounts() -> None:
+        """弹出 AI 账户设置对话框，保存后自动刷新余额。"""
+        dlg = AIAccountsDialog(window)
+        if dlg.exec() == AIAccountsDialog.Accepted:
+            # 重新加载配置并刷新余额
+            ai_balance_service.reload_config()
+
     window.set_quick_actions(
 
         source_names=source_names,
@@ -502,8 +515,14 @@ def main() -> int:
         on_toggle_autostart=on_toggle_autostart,
         autostart_enabled=_is_autostart_enabled("HorseSmallNine"),
         on_set_work_hours=on_set_work_hours,
-
+        on_pick_image=window.pick_image_from_dialog,
+        on_ai_accounts=on_ai_accounts,
     )
+
+    # 设置 MIMO 余额查询地址
+    mimo_cfg = [acc for acc in ai_balance_service._accounts if acc.name == "MiMo"]
+    if mimo_cfg and mimo_cfg[0].web_url:
+        tray.set_mimo_url(mimo_cfg[0].web_url)
 
     # ----- 首次启动：弹出工作时间设置 -----
     from config import WORK_HOURS_CONFIGURED
@@ -525,6 +544,8 @@ def main() -> int:
     health_provider.start()
 
     weather_provider.start()
+
+    ai_balance_service.start()
 
     tray.show()
 

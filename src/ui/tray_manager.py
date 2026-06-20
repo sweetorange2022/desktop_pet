@@ -28,6 +28,8 @@ class TrayManager:
         on_toggle_autostart: Optional[Callable[[bool], None]] = None,
         autostart_enabled: bool = False,
         on_set_work_hours: Optional[Callable[[], None]] = None,
+        on_pick_image: Optional[Callable[[], None]] = None,
+        on_ai_accounts: Optional[Callable[[], None]] = None,
     ) -> None:
         self._parent = parent
         self._tray = QSystemTrayIcon(parent)
@@ -81,6 +83,24 @@ class TrayManager:
             act_work_hours.triggered.connect(on_set_work_hours)
             self._menu.addAction(act_work_hours)
 
+        # 更换图片
+        if on_pick_image is not None:
+            act_pick = QAction("更换图片", parent)
+            act_pick.triggered.connect(on_pick_image)
+            self._menu.addAction(act_pick)
+
+        # AI 账户设置
+        if on_ai_accounts is not None:
+            act_ai = QAction("AI 账户设置", parent)
+            act_ai.triggered.connect(on_ai_accounts)
+            self._menu.addAction(act_ai)
+
+        # 🔍MIMO 余额查询按钮
+        self._mimo_urls: list[str] = []
+        act_mimo = QAction("🔍MIMO", parent)
+        act_mimo.triggered.connect(self._on_mimo_query)
+        self._menu.addAction(act_mimo)
+
         # 开机自启
         if on_toggle_autostart is not None:
             act_autostart = QAction("开机自启", parent)
@@ -121,3 +141,15 @@ class TrayManager:
         """更新当前选中的信息源菜单项。"""
         for act in self._source_actions:
             act.setChecked(act.text() == name)
+
+    def set_mimo_url(self, url: str) -> None:
+        """设置 MIMO 余额查询网页地址。"""
+        self._mimo_urls = [url] if url else []
+
+    def _on_mimo_query(self) -> None:
+        """打开 MIMO 余额查询网页。"""
+        import webbrowser
+        if self._mimo_urls:
+            webbrowser.open(self._mimo_urls[0])
+        else:
+            webbrowser.open("https://platform.xiaomimimo.com/console/balance")

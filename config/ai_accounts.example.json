@@ -1,0 +1,37 @@
+{
+    "comment": "AI账户余额配置模板。复制此文件为 ai_accounts.json 并填入你的 API Key。ai_accounts.json 已被 .gitignore 忽略，不会上传。",
+    "enabled": true,
+    "refresh_interval_s": 300,
+    "accounts": [
+        {
+            "name": "DeepSeek",
+            "api_url": "https://api.deepseek.com/user/balance",
+            "api_key": "",
+            "method": "GET",
+            "headers": {},
+            "balance_json_path": "balance_infos.0.total_balance",
+            "currency": "CNY",
+            "enabled": true
+        },
+        {
+            "name": "MiMo",
+            "api_url": "https://api.xiaomimimo.com/v1/models",
+            "api_key": "",
+            "method": "GET",
+            "headers": {},
+            "balance_json_path": "balance",
+            "currency": "CNY",
+            "enabled": false
+        },
+        {
+            "name": "豆包",
+            "api_url": "https://ark.cn-beijing.volces.com/api/v3/usage",
+            "api_key": "",
+            "method": "GET",
+            "headers": {},
+            "balance_json_path": "data.total_balance",
+            "currency": "CNY",
+            "enabled": false
+        }
+    ]
+}
