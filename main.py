@@ -196,7 +196,7 @@ def main() -> int:
 
     tray_icon = _resolve_asset("cat.png", subdir="ico")
 
-    pet_img = _resolve_asset("pet.png", subdir="generated")
+    pet_img = _resolve_asset("Deepseek.png", subdir="images")
 
     # 优先检查 animated/ 目录下的 GIF（内存小 ~10MB vs MP4 ~500MB）
 
