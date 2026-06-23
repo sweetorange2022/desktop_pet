@@ -8,7 +8,7 @@ import time
 from PySide6.QtCore import QRect
 from PySide6.QtWidgets import QApplication
 
-from src.ui.pet_window import _physical_region, _is_primary_screen
+from src.capture.dpi import physical_region as _physical_region, is_primary_screen as _is_primary_screen
 
 
 def _test_grab(screen, rect: QRect) -> dict:

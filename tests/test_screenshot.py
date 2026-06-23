@@ -9,17 +9,15 @@ from pathlib import Path
 from PySide6.QtCore import QRect, Qt
 from PySide6.QtWidgets import QApplication, QWidget
 
-from src.ui.pet_window import (
-    ScreenshotOverlay,
-    _capture_region_to_path,
-    _file_max_brightness,
-    _monitor_dpi_scale,
-)
+from src.ui.pet_window import ScreenshotOverlay
+from src.capture.screenshot import capture_region_to_path as _capture_region_to_path
+from src.capture.dpi import monitor_dpi_scale as _monitor_dpi_scale
+from src.utils.image import file_max_brightness as _file_max_brightness
 
 
 def _debug_screen_capture(screen, rect: QRect, label: str) -> None:
     try:
-        from src.ui.pet_window import _monitor_for_screen, _physical_region, _win32_physical_monitors
+        from src.capture.dpi import monitor_for_screen as _monitor_for_screen, physical_region as _physical_region, win32_physical_monitors as _win32_physical_monitors
 
         geo = screen.geometry()
         monitor = _monitor_for_screen(screen)

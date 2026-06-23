@@ -20,8 +20,10 @@ from PySide6.QtGui import QGuiApplication, QIcon
 
 from PySide6.QtWidgets import QApplication
 
-from config import PET_SIZE
-
+from config import PET_SIZE, CAMERA_ENABLED, CAMERA_INDEX, CAMERA_RESOLUTION
+from config import CAMERA_CAPTURE_DURATION_S, CAMERA_CAPTURE_FPS, CAMERA_SNAPSHOT_DIR
+from config import STYLE_ENABLED, STYLE_MORNING_TIME, STYLE_EVENING_TIME, STYLE_PROFILE
+from config import STYLE_OUTFIT_HISTORY_FILE
 from src.core.monitor import SystemMonitor
 
 from src.ui.pet_window import PetWindow
@@ -140,6 +142,27 @@ def _find_animated() -> list[str]:
 
 def main() -> int:
 
+    # ----- 日志配置 -----
+    import logging
+    _log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "logs")
+    os.makedirs(_log_dir, exist_ok=True)
+    _log_file = os.path.join(_log_dir, "horsesmallnine.log")
+    logging.basicConfig(
+        level=logging.DEBUG,
+        format="%(asctime)s [%(name)s] %(levelname)s: %(message)s",
+        datefmt="%H:%M:%S",
+        handlers=[
+            logging.StreamHandler(sys.stderr),
+            logging.FileHandler(_log_file, encoding="utf-8", mode="a"),
+        ],
+        force=True,
+    )
+    # 降低第三方库日志
+    for _name in ("urllib3", "requests", "PIL", "matplotlib"):
+        logging.getLogger(_name).setLevel(logging.WARNING)
+    logger = logging.getLogger("main")
+    logger.info("===== HorseSmallNine 启动 =====")
+
     # ----- 启动前清理临时文件 -----
     def _cleanup_temp():
         import os as _os, glob as _glob, shutil as _shutil
@@ -194,33 +217,16 @@ def main() -> int:
     if not _is_autostart_enabled("HorseSmallNine"):
         _enable_autostart("HorseSmallNine")
 
-    tray_icon = _resolve_asset("cat.png", subdir="ico")
+    tray_icon = _resolve_asset("pet.png", subdir="generated")
 
-    pet_img = _resolve_asset("Deepseek.png", subdir="images")
+    pet_img = _resolve_asset("pet.png", subdir="generated")
 
-    # 优先检查 animated/ 目录下的 GIF（内存小 ~10MB vs MP4 ~500MB）
-
+    # 默认使用 pet.png，GIF/视频作为可切换备选
     animated_list = _find_animated()
+    videos = _find_videos()
+    asset_list = animated_list + videos
 
-    if animated_list:
-
-        pet_asset = animated_list[0]
-
-        asset_list = animated_list
-
-    else:
-
-        videos = _find_videos()
-
-        default_video = next((v for v in videos if "猫小九" in v), "")
-
-        if not default_video and videos:
-
-            default_video = videos[0]
-
-        pet_asset = default_video if default_video else pet_img
-
-        asset_list = videos if videos else []
+    pet_asset = pet_img  # 强制默认 pet.png
 
     # 基础模块
 
@@ -245,6 +251,59 @@ def main() -> int:
     sched_provider = ScheduleProvider(schedule_path=sched_path)
 
     health_provider = HealthReminderProvider()
+
+    # 摄像头健康检测 + 智能提醒 + 穿搭建议
+    camera_monitor = None
+    smart_engine = None
+    style_service = None
+    if CAMERA_ENABLED:
+        try:
+            from src.services.camera_monitor import CameraMonitor
+            from src.services.smart_reminder import SmartReminderEngine
+            from src.services.daily_style import DailyStyleService
+
+            _cam_cfg = {
+                "enabled": True,
+                "camera_index": CAMERA_INDEX,
+                "resolution_width": CAMERA_RESOLUTION[0],
+                "resolution_height": CAMERA_RESOLUTION[1],
+                "capture_duration_s": CAMERA_CAPTURE_DURATION_S,
+                "capture_fps": CAMERA_CAPTURE_FPS,
+                "snapshot_dir": CAMERA_SNAPSHOT_DIR,
+                "snapshot_quality": 85,
+                "ear_threshold": 0.21,
+                "mar_threshold": 0.7,
+                "posture_pitch_threshold": 15,
+                "posture_yaw_threshold": 20,
+                "fatigue_threshold": 70,
+                "posture_threshold": 60,
+                "eye_dark_threshold": 60,
+                "min_reminder_interval_min": 20,
+                "same_topic_cooldown_min": 40,
+                "trend_window": 3,
+                "trend_threshold": 5,
+            }
+            camera_monitor = CameraMonitor(_cam_cfg)
+            smart_engine = SmartReminderEngine(_cam_cfg)
+
+            _style_cfg = {
+                "enabled": STYLE_ENABLED,
+                "profile": STYLE_PROFILE,
+                "max_chars": 120,
+                "outfit_history_file": str(Path(__file__).parent / STYLE_OUTFIT_HISTORY_FILE),
+                "outfit_history_days": 7,
+            }
+            style_service = DailyStyleService(_style_cfg, _cam_cfg)
+
+            health_provider.set_camera_services(
+                camera_monitor=camera_monitor,
+                smart_engine=smart_engine,
+                style_service=style_service,
+                camera_config=_cam_cfg,
+            )
+            print("[init] 摄像头健康检测已初始化")
+        except Exception as e:
+            print(f"[init] 摄像头初始化失败（降级为纯计时模式）: {e}")
 
     weather_provider = WeatherProvider()
 
@@ -438,10 +497,14 @@ def main() -> int:
 
             json.dump(cfg, f, ensure_ascii=False, indent=2)
 
+        from config import config as _cfg
+        _cfg.set_many("weather.json", {
+            "weather_city": result["city"],
+            "weather_latitude": result["lat"],
+            "weather_longitude": result["lon"],
+        })
         cfg_mod.WEATHER_CITY = result["city"]
-
         cfg_mod.WEATHER_LATITUDE = result["lat"]
-
         cfg_mod.WEATHER_LONGITUDE = result["lon"]
 
         weather_provider._alert = None
@@ -477,6 +540,10 @@ def main() -> int:
                 ot = result["off_times"]
                 cfg_mod.HEALTH_WORK_HOURS = [tuple(x) for x in wh]
                 cfg_mod.HEALTH_OFF_WORK_TIMES = [tuple(x) for x in ot]
+                # 持久化到 health.json
+                from config import config as _cfg
+                _cfg.set("health.json", "health_work_hours", wh)
+                _cfg.set("health.json", "health_off_work_times", ot)
 
     def on_ai_accounts() -> None:
         """弹出 AI 账户设置对话框，保存后自动刷新余额。"""
@@ -496,6 +563,85 @@ def main() -> int:
         on_test_health=health_provider.test_reminder,
 
     )
+    # ----- 测试回调函数 -----
+    def _test_camera():
+        """测试摄像头检测：采集一次，弹出结果。"""
+        if not camera_monitor:
+            tray.show_message("摄像头测试", "摄像头未初始化")
+            return
+        tray.show_message("摄像头测试", "正在采集 5 秒...")
+        QApplication.processEvents()
+        try:
+            snap = camera_monitor.capture_and_analyze()
+            if snap.face_detected:
+                msg = (
+                    f"✅ 人脸检测成功\n"
+                    f"疲劳: {snap.fatigue}/100\n"
+                    f"坐姿: {snap.posture}/100\n"
+                    f"肤色: {snap.skin_tone}\n"
+                    f"黑眼圈: {snap.eye_dark}/100\n"
+                    f"快照: {snap.image_path}"
+                )
+            else:
+                msg = f"⚠️ 未检测到人脸\n快照: {snap.image_path or '无'}"
+            tray.show_message("摄像头测试结果", msg)
+            logger.info("摄像头测试: face=%s fatigue=%s posture=%s path=%s",
+                       snap.face_detected, snap.fatigue, snap.posture, snap.image_path)
+        except Exception as e:
+            tray.show_message("摄像头测试失败", str(e))
+            logger.exception("摄像头测试异常")
+
+    def _test_style():
+        """测试穿搭建议：触发一次完整的建议生成。"""
+        if not style_service:
+            tray.show_message("穿搭测试", "穿搭服务未初始化")
+            return
+        tray.show_message("穿搭测试", "正在生成建议...")
+        QApplication.processEvents()
+        try:
+            # 构建天气信息
+            weather_info = {"city": "未知", "desc": "未知", "temp": "未知"}
+            try:
+                from src.services.weather import fetch_today_weather
+                city = style_service.get_city()
+                w = fetch_today_weather()
+                if w:
+                    weather_info = {
+                        "city": city, "desc": w.weather_desc,
+                        "temp": f"{w.temp_min:.0f}~{w.temp_max:.0f}°C",
+                        "wind": f"{w.wind_speed_max:.0f}",
+                        "rain": f"{w.rain_prob_max:.0f}", "uv": "",
+                    }
+            except Exception:
+                pass
+
+            # 取最新快照或空快照
+            from src.services.camera_monitor import CameraSnapshot
+            snap = (health_provider._today_snapshots[-1]
+                    if health_provider._today_snapshots
+                    else CameraSnapshot(timestamp="", face_detected=False))
+
+            advice = style_service.generate_advice(
+                snapshot=snap, weather_info=weather_info,
+                period="上午",
+            )
+            if advice:
+                tray.show_message("👔 精气神建议", advice)
+                logger.info("穿搭建议测试成功: %s", advice[:100])
+            else:
+                tray.show_message("穿搭测试", "建议生成失败（检查 API Key）")
+        except Exception as e:
+            tray.show_message("穿搭测试失败", str(e))
+            logger.exception("穿搭测试异常")
+
+    def _show_log():
+        """打开日志文件。"""
+        import subprocess
+        if os.path.isfile(_log_file):
+            subprocess.Popen(["notepad", _log_file])
+        else:
+            tray.show_message("日志", f"日志文件不存在: {_log_file}")
+
     tray = TrayManager(
 
         parent=window,
@@ -517,6 +663,9 @@ def main() -> int:
         on_set_work_hours=on_set_work_hours,
         on_pick_image=window.pick_image_from_dialog,
         on_ai_accounts=on_ai_accounts,
+        on_test_camera=_test_camera,
+        on_test_style=_test_style,
+        on_show_log=_show_log,
     )
 
     # 设置 MIMO 余额查询地址
@@ -542,6 +691,22 @@ def main() -> int:
     monitor.start()
 
     health_provider.start()
+
+    # ----- 每日精气神建议定时器（10:10 + 18:10） -----
+    if style_service:
+        from datetime import datetime as _dt
+
+        def _check_style_advice():
+            now = _dt.now()
+            h, m = now.hour, now.minute
+            if h == 10 and m == 10:
+                health_provider.trigger_style_advice("上午")
+            elif h == 18 and m == 10:
+                health_provider.trigger_style_advice("傍晚")
+
+        _style_timer = QTimer()
+        _style_timer.timeout.connect(_check_style_advice)
+        _style_timer.start(60000)  # 每分钟检查一次
 
     weather_provider.start()
 
