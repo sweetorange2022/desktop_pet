@@ -12,7 +12,7 @@ from pathlib import Path
 ROOT = Path(__file__).parent
 MAIN = ROOT / "main.py"
 ASSETS = ROOT / "assets"
-ICON = ASSETS / "ico" / "cat.ico"
+ICON = ASSETS / "ico" / "Deepseek.ico"
 DIST = ROOT / "release"
 
 # hidden-import: weather_image 在 weather_dialog.on_send() 中被动态导入，
@@ -20,10 +20,27 @@ DIST = ROOT / "release"
 HIDDEN_IMPORTS = [
     "src.ui.weather_image",
     "src.ui.work_hours_dialog",
+    "src.ui.ai_accounts_dialog",
+    "src.providers.ai_balance_provider",
+    "src.services.ai_balance",
+    "src.services.screen_recorder",
+    "src.services.camera_monitor",
+    "src.services.smart_reminder",
+    "src.services.daily_style",
+    "src.capture",
+    "src.capture.dpi",
+    "src.capture.screenshot",
+    "src.capture.recording",
+    "src.utils",
+    "src.utils.image",
+    "src.utils.clipboard",
+    "src.utils.logging_config",
     "mss",
     "mss.tools",
     "PIL.ImageGrab",
-    "src.services.screen_recorder",
+    "cv2",
+    "mediapipe",
+    "numpy",
     "imageio",
     "imageio.plugins.ffmpeg",
 ]

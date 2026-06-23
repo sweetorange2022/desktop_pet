@@ -217,16 +217,16 @@ def main() -> int:
     if not _is_autostart_enabled("HorseSmallNine"):
         _enable_autostart("HorseSmallNine")
 
-    tray_icon = _resolve_asset("pet.png", subdir="generated")
+    tray_icon = _resolve_asset("Deepseek.ico", subdir="ico")
 
-    pet_img = _resolve_asset("pet.png", subdir="generated")
+    pet_img = _resolve_asset("Deepseek.png", subdir="images")
 
-    # 默认使用 pet.png，GIF/视频作为可切换备选
+    # 默认使用 Deepseek.png，GIF/视频作为可切换备选
     animated_list = _find_animated()
     videos = _find_videos()
     asset_list = animated_list + videos
 
-    pet_asset = pet_img  # 强制默认 pet.png
+    pet_asset = pet_img  # 强制默认 Deepseek.png
 
     # 基础模块
 

@@ -1,7 +1,7 @@
 {
     "comment": "界面显示相关配置",
     "app_name": "桌面宠物",
-    "pet_size": 120,
+    "pet_size": 60,
     "bubble_width": 200,
     "bubble_height": 120,
     "bubble_margin": 0,
