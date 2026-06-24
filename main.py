@@ -45,6 +45,7 @@ from src.providers.health_provider import HealthReminderProvider
 from src.providers.weather_provider import WeatherProvider
 from src.services.ai_balance import AIBalanceService
 from src.ui.ai_accounts_dialog import AIAccountsDialog
+from src.ui.reminder_popup import ReminderPopup
 from src.ui.weather_dialog import WeatherDialog
 
 from src.ui.tray_manager import TrayManager
@@ -584,7 +585,7 @@ def main() -> int:
                 )
             else:
                 msg = f"⚠️ 未检测到人脸\n快照: {snap.image_path or '无'}"
-            tray.show_message("摄像头测试结果", msg)
+            health_reminder.show_reminder("📷 摄像头测试结果", msg)
             logger.info("摄像头测试: face=%s fatigue=%s posture=%s path=%s",
                        snap.face_detected, snap.fatigue, snap.posture, snap.image_path)
         except Exception as e:
@@ -626,10 +627,10 @@ def main() -> int:
                 period="上午",
             )
             if advice:
-                tray.show_message("👔 精气神建议", advice)
+                health_reminder.show_reminder("👔 精气神建议", advice)
                 logger.info("穿搭建议测试成功: %s", advice[:100])
             else:
-                tray.show_message("穿搭测试", "建议生成失败（检查 API Key）")
+                health_reminder.show_reminder("穿搭测试", "建议生成失败（检查 API Key）")
         except Exception as e:
             tray.show_message("穿搭测试失败", str(e))
             logger.exception("穿搭测试异常")
@@ -678,11 +679,11 @@ def main() -> int:
     if not WORK_HOURS_CONFIGURED:
         QTimer.singleShot(500, on_set_work_hours)
 
-    # 连接健康提醒信号
+    # 连接健康提醒信号（持久化弹窗，带打开数据按钮）
+    _reminder_popup = ReminderPopup(window)
 
-    def _show_reminder(title: str, msg: str) -> None:
-
-        tray.show_message(title, msg)
+    def _show_reminder(title: str, msg: str, snapshot_dir: str = "") -> None:
+        _reminder_popup.show_reminder(title, msg, snapshot_dir)
 
     health_provider.reminder_triggered.connect(_show_reminder)
 

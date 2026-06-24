@@ -21,6 +21,7 @@ HIDDEN_IMPORTS = [
     "src.ui.weather_image",
     "src.ui.work_hours_dialog",
     "src.ui.ai_accounts_dialog",
+    "src.ui.reminder_popup",
     "src.providers.ai_balance_provider",
     "src.services.ai_balance",
     "src.services.screen_recorder",
