@@ -217,7 +217,7 @@ def main() -> int:
     if not _is_autostart_enabled("HorseSmallNine"):
         _enable_autostart("HorseSmallNine")
 
-    tray_icon = _resolve_asset("Deepseek.ico", subdir="ico")
+    tray_icon = _resolve_asset("cat.png", subdir="ico")
 
     pet_img = _resolve_asset("Deepseek.png", subdir="images")
 
