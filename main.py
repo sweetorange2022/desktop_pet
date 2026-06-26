@@ -145,7 +145,11 @@ def main() -> int:
 
     # ----- 日志配置 -----
     import logging
-    _log_dir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "logs")
+    if getattr(sys, "frozen", False):
+        _app_dir = os.path.dirname(sys.executable)
+    else:
+        _app_dir = os.path.dirname(os.path.abspath(__file__))
+    _log_dir = os.path.join(_app_dir, "data", "logs")
     os.makedirs(_log_dir, exist_ok=True)
     _log_file = os.path.join(_log_dir, "horsesmallnine.log")
     logging.basicConfig(

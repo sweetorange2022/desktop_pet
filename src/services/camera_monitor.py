@@ -113,7 +113,9 @@ class CameraMonitor:
         frames = self._capture_frames()
         if not frames:
             logger.warning("摄像头采集失败: 无帧数据")
-            return CameraSnapshot(timestamp=ts.isoformat(), face_detected=False)
+            # 仍然保存一条记录（无快照），用于追踪检测历史
+            empty_path = self._save_failure_record(ts)
+            return CameraSnapshot(timestamp=ts.isoformat(), face_detected=False, image_path=empty_path)
         logger.info("采集到 %d 帧，开始分析...", len(frames))
 
         # 取中间帧保存为快照
@@ -261,6 +263,28 @@ class CameraMonitor:
                 json.dump(snapshot.to_dict(), f, ensure_ascii=False, indent=2)
         except OSError as e:
             logger.warning("保存元数据失败: %s", e)
+
+    def _save_failure_record(self, ts: datetime) -> str:
+        """摄像头打开失败时，仍保存一条记录用于追踪。"""
+        time_dir = os.path.join(
+            self._snapshot_dir,
+            f"{ts.year}-W{ts.isocalendar()[1]:02d}",
+            ts.strftime("%Y%m%d"),
+            ts.strftime("%H%M%S"),
+        )
+        os.makedirs(time_dir, exist_ok=True)
+        meta_path = os.path.join(time_dir, "failure_meta.json")
+        record = {
+            "timestamp": ts.isoformat(),
+            "error": "camera_not_available",
+            "face_detected": False,
+        }
+        try:
+            with open(meta_path, "w", encoding="utf-8") as f:
+                json.dump(record, f, ensure_ascii=False, indent=2)
+        except OSError as e:
+            logger.warning("保存失败记录: %s", e)
+        return time_dir  # 返回目录路径（非图片路径）
 
     # ---- 评分计算 ----
 

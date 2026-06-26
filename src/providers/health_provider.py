@@ -174,14 +174,15 @@ class HealthReminderProvider(InfoProvider):
 
         # 智能决策
         is_hourly = now.minute == 0
-        if self._smart_engine and snapshot:
+        has_valid_snapshot = snapshot is not None and snapshot.image_path
+        if self._smart_engine and has_valid_snapshot:
             result = self._smart_engine.decide(snapshot, is_hourly=is_hourly)
             if result.should_remind:
                 self._encouragement = result.message
                 snap_dir = os.path.dirname(snapshot.image_path) if snapshot.image_path else ""
                 self.reminder_triggered.emit(result.title, result.message, snap_dir)
-        elif is_hourly:
-            # 无摄像头 → 整点走原有逻辑
+        if is_hourly and (not has_valid_snapshot or not self._smart_engine):
+            # 无摄像头或采集失败 → 整点走原有逻辑
             self._hourly_fallback(now)
 
     def _hourly_fallback(self, now: datetime) -> None:
